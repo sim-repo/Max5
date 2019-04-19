@@ -25,7 +25,7 @@ import * as mysql from "./loading-mysql";
 
 
 const app = express();
-const port = 8080; // default port to listen
+const port = 3000; // default port to listen
 app.use( parser.json() );
 app.use(parser.urlencoded({     // to support URL-encoded bodies
     extended: true
