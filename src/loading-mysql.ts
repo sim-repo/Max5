@@ -17,12 +17,15 @@ const myPsw =  'root';
 const myDatabase =  'max5';
 
 
-function getNewConnection() {
+export function getNewConnection() {
     let connection = mysql.createConnection({
         host     : myHost,
         user     : myUser,
         password : myPsw,
         database : myDatabase
+    });
+    connection.on('error', function() {
+        console.log("error in mysql")
     });
     return connection
 }

@@ -31,8 +31,9 @@ const loadSequence = __importStar(require("./loading-sequence"));
 const lightFilterEntities = __importStar(require("./output-light-filter-entities"));
 const converter = __importStar(require("./converter"));
 const parser = __importStar(require("body-parser"));
+const insMysq = __importStar(require("./insert-mysql"));
 const app = express_1.default();
-const port = 8080; // default port to listen
+const port = 3000; // default port to listen
 app.use(parser.json());
 app.use(parser.urlencoded({
     extended: true
@@ -88,7 +89,7 @@ function setUidJSON() {
 }
 exports.setUidJSON = setUidJSON;
 function isGlobalCacheReady() {
-    if (exports.clientMode == ClientMode.Light) {
+    if (exports.clientMode === ClientMode.Light) {
         if (helper.dictCount(exports.cacheByCategory) === 0 ||
             helper.dictCount(applyLogic.subfiltersByFilter) === 0 ||
             helper.dictCount(applyLogic.subfiltersByItem) === 0 ||
@@ -97,64 +98,111 @@ function isGlobalCacheReady() {
             return false;
         }
     }
-    if (exports.clientMode == ClientMode.Heavy) {
+    if (exports.clientMode === ClientMode.Heavy) {
         if (helper.dictCount(exports.cacheByCategory) === 0) {
             return false;
         }
     }
     return true;
 }
-function runMethod(data) {
-    const method = data.method;
-    switch (method) {
-        case "doApplyFromFilter": {
-            return applyFilter.getResults(data);
+function runInsMethod(data) {
+    const fname = data.fname;
+    try {
+        switch (fname) {
+            case "insUIDs": {
+                return insMysq.insUIDs(data);
+            }
+            case "insCategories": {
+                return insMysq.insCategories(data);
+            }
+            case "insFilter": {
+                return insMysq.insFilter(data);
+            }
+            case "insItem": {
+                return insMysq.insItem(data);
+            }
+            case "insItemsBySubfilter": {
+                return insMysq.insItemsBySubfilter(data);
+            }
+            case "insPriceByItem": {
+                return insMysq.insPriceByItem(data);
+            }
+            case "insRangePriceByCategory": {
+                return insMysq.insRangePriceByCategory(data);
+            }
+            case "insSubfilter": {
+                return insMysq.insSubfilter(data);
+            }
+            case "insSubfiltersByItem": {
+                return insMysq.insSubfiltersByItem(data);
+            }
+            default: {
+                return new Promise(function (resolve, reject) {
+                    resolve("no method found: " + fname);
+                });
+            }
         }
-        case "doApplyFromSubfilter": {
-            return applySubfilter.getResults(data);
+    }
+    catch (ex) {
+        console.log(ex);
+    }
+}
+function runGetMethod(data) {
+    const fname = data.fname;
+    try {
+        switch (fname) {
+            case "doApplyFromFilter": {
+                return applyFilter.getResults(data);
+            }
+            case "doApplyFromSubfilter": {
+                return applySubfilter.getResults(data);
+            }
+            case "doApplyPrice": {
+                return applyByPrice.getResults(data);
+            }
+            case "doApplySubfilterEnter": {
+                return applyEnter.getResults(data);
+            }
+            case "doRemoveFilter": {
+                return removeFilter.getResults(data);
+            }
+            case "getLightFilterEntities": {
+                return lightFilterEntities.getResults(data);
+            }
+            case "getPrefetching": {
+                return prefetching.getResults(data);
+            }
+            case "doCalcMidTotal": {
+                return calcMidTotal.getResults(data);
+            }
+            case "getCatalogTotals": {
+                return catalogTotals.getResults(data);
+            }
+            case "getFiltersChunk1": {
+                return chunk1.getResults(data);
+            }
+            case "getSubfiltersChunk2": {
+                return chunk2.getResults(data);
+            }
+            case "getItemsChunk3": {
+                return chunk3.getResults(data);
+            }
+            case "getCrossChunk4": {
+                return chunk4.getResults(data);
+            }
+            case "getCategoryFiltersChunk5": {
+                return chunk5.getResults(data);
+            }
+            case "getUIDs": {
+                return uidsout.getResults(data);
+            }
+            default: {
+                return { res: "no method found: " + fname };
+            }
         }
-        case "doApplyPrice": {
-            return applyByPrice.getResults(data);
-        }
-        case "doApplySubfilterEnter": {
-            return applyEnter.getResults(data);
-        }
-        case "doRemoveFilter": {
-            return removeFilter.getResults(data);
-        }
-        case "getLightFilterEntities": {
-            return lightFilterEntities.getResults(data);
-        }
-        case "getPrefetching": {
-            return prefetching.getResults(data);
-        }
-        case "doCalcMidTotal": {
-            return calcMidTotal.getResults(data);
-        }
-        case "getCatalogTotals": {
-            return catalogTotals.getResults(data);
-        }
-        case "getFiltersChunk1": {
-            return chunk1.getResults(data);
-        }
-        case "getSubfiltersChunk2": {
-            return chunk2.getResults(data);
-        }
-        case "getItemsChunk3": {
-            return chunk3.getResults(data);
-        }
-        case "getCrossChunk4": {
-            return chunk4.getResults(data);
-        }
-        case "getCategoryFiltersChunk5": {
-            return chunk5.getResults(data);
-        }
-        case "getUIDs": {
-            return uidsout.getResults(data);
-        }
-        default: {
-            return { res: "no method found: " + method };
-        }
+    }
+    catch (ex) {
+        console.log(ex);
     }
 }
 app.post("/functions2", (req, res) => {
@@ -165,22 +213,36 @@ app.post("/functions2", (req, res) => {
 app.post("/functions", (req, res) => {
     const method = req.body.method;
     //  console.log("request: " + method + ", cacheLoadInProgress: "+ cacheLoadInProgress)
-    if (isGlobalCacheReady() === false) {
-        console.log("force: read from db(): " + method);
-        if (cacheLoadInProgress) {
-            console.log("request has been rejected: " + method);
-            res.send('');
+    const fname = req.body.fname;
+    if (method === "GET") {
+        if (isGlobalCacheReady() === false) {
+            console.log("force: read from db(): " + fname);
+            if (cacheLoadInProgress) {
+                console.log("request has been rejected: " + fname);
+                res.send('');
+            }
+            cacheLoadInProgress = true;
+            return new Promise((res3, reject) => {
+                loadSequence.loadGlobalCache()
+                    .then(function () {
+                    cacheLoadInProgress = false;
+                    res.send(runGetMethod(req.body));
+                }).catch(function (error) {
+                    console.log('mistake!', error);
+                });
+            });
         }
-        cacheLoadInProgress = true;
-        return new Promise((res3, reject) => {
-            loadSequence.loadGlobalCache()
-                .then(function () {
-                cacheLoadInProgress = false;
-                res.send(runMethod(req.body));
-            }).catch(function (error) { console.log('mistake!', error); });
+        console.log("read from cache by mobile request: " + fname);
+        res.send(runGetMethod(req.body));
+    }
+    if (method === "INS") {
+        runInsMethod(req.body)
+            .then(function (msg) {
+            res.send(msg);
+        })
+            .catch(function (error) {
+            res.send(error);
         });
     }
-    console.log("read from cache by mobile request: " + method);
-    res.send(runMethod(req.body));
 });
 //# sourceMappingURL=index.js.map

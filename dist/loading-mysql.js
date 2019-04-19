@@ -28,8 +28,12 @@ function getNewConnection() {
         password: myPsw,
         database: myDatabase
     });
+    connection.on('error', function () {
+        console.log("error in mysql");
+    });
     return connection;
 }
+exports.getNewConnection = getNewConnection;
 // ********* fill data: ***********
 function fillCategories() {
     return new Promise(function (resolve, reject) {

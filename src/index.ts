@@ -21,7 +21,7 @@ import * as lightFilterEntities from './output-light-filter-entities'
 import { UIDModel } from './model-uuid';
 import * as converter from './converter';
 import * as parser from 'body-parser';
-import * as mysql from "./loading-mysql";
+import * as insMysq from "./insert-mysql";
 
 
 const app = express();
@@ -110,75 +110,121 @@ function isGlobalCacheReady(): Boolean {
 }
 
 
+function runInsMethod(data: any) {
 
-function runMethod(data: any) {
-
-    const method  = data.method as String
-
-    switch (method) {
-        case "doApplyFromFilter": {
-            return applyFilter.getResults(data)
+    const fname  = data.fname as String
+    try {
+        switch (fname) {
+            case "insUIDs": {
+                return insMysq.insUIDs(data)
+            }
+            case "insCategories": {
+                return insMysq.insCategories(data)
+            }
+            case "insFilter": {
+                return insMysq.insFilter(data)
+            }
+            case "insItem": {
+                return insMysq.insItem(data)
+            }
+            case "insItemsBySubfilter": {
+                return insMysq.insItemsBySubfilter(data)
+            }
+            case "insPriceByItem": {
+                return insMysq.insPriceByItem(data)
+            }
+            case "insRangePriceByCategory": {
+                return insMysq.insRangePriceByCategory(data)
+            }
+            case "insSubfilter": {
+                return insMysq.insSubfilter(data)
+            }
+            case "insSubfiltersByItem": {
+                return insMysq.insSubfiltersByItem(data)
+            }
+            default: {
+                return new Promise(function(resolve, reject) {
+                    resolve("no method found: " + fname)
+                });
+            }
         }
+    } catch (ex) {
+        console.log(ex);
+    }
+}
 
-        case "doApplyFromSubfilter": {
-            return applySubfilter.getResults(data)
-        }
+function runGetMethod(data: any) {
 
-        case "doApplyPrice": {
-            return applyByPrice.getResults(data)
-        }
+    const fname  = data.fname as String
+    try {
+        switch (fname) {
+            case "doApplyFromFilter": {
+                return applyFilter.getResults(data)
+            }
 
-        case "doApplySubfilterEnter": {
-            return applyEnter.getResults(data)
-        }
+            case "doApplyFromSubfilter": {
+                return applySubfilter.getResults(data)
+            }
 
-        case "doRemoveFilter": {
-            return removeFilter.getResults(data)
-        }
+            case "doApplyPrice": {
+                return applyByPrice.getResults(data)
+            }
 
-        case "getLightFilterEntities": {
-            return lightFilterEntities.getResults(data)
-        }
+            case "doApplySubfilterEnter": {
+                return applyEnter.getResults(data)
+            }
 
-        case "getPrefetching": {
-            return prefetching.getResults(data)
-        }
+            case "doRemoveFilter": {
+                return removeFilter.getResults(data)
+            }
 
-        case "doCalcMidTotal": {
-            return calcMidTotal.getResults(data)
-        }
+            case "getLightFilterEntities": {
+                return lightFilterEntities.getResults(data)
+            }
 
-        case "getCatalogTotals": {
-            return catalogTotals.getResults(data)
-        }
+            case "getPrefetching": {
+                return prefetching.getResults(data)
+            }
 
-        case "getFiltersChunk1": {
-            return chunk1.getResults(data)
-        }
+            case "doCalcMidTotal": {
+                return calcMidTotal.getResults(data)
+            }
 
-        case "getSubfiltersChunk2": {
-            return chunk2.getResults(data)
-        }
+            case "getCatalogTotals": {
+                return catalogTotals.getResults(data)
+            }
 
-        case "getItemsChunk3": {
-            return chunk3.getResults(data)
-        }
+            case "getFiltersChunk1": {
+                return chunk1.getResults(data)
+            }
 
-        case "getCrossChunk4": {
-            return chunk4.getResults(data)
-        }
+            case "getSubfiltersChunk2": {
+                return chunk2.getResults(data)
+            }
 
-        case "getCategoryFiltersChunk5": {
-            return chunk5.getResults(data)
-        }
+            case "getItemsChunk3": {
+                return chunk3.getResults(data)
+            }
 
-        case "getUIDs": {
-            return uidsout.getResults(data)
-        }
+            case "getCrossChunk4": {
+                return chunk4.getResults(data)
+            }
 
-        default: {
-            return {res: "no method found: "+method}
+            case "getCategoryFiltersChunk5": {
+                return chunk5.getResults(data)
+            }
+
+            case "getUIDs": {
+                return uidsout.getResults(data)
+            }
+
+
+            default: {
+                return {res: "no method found: " + fname}
+            }
         }
+    } catch (ex) {
+        console.log(ex);
     }
 }
 
@@ -191,24 +237,41 @@ app.post( "/functions2", ( req, res ) => {
 app.post( "/functions", ( req, res ) => {
     const method = req.body.method as String
     //  console.log("request: " + method + ", cacheLoadInProgress: "+ cacheLoadInProgress)
+    const fname = req.body.fname as String
 
-    if (isGlobalCacheReady() === false) {
-        console.log("force: read from db(): "+ method)
-        if (cacheLoadInProgress) {
-            console.log("request has been rejected: " + method)
-            res.send('');
+    if (method == "GET") {
+        if (isGlobalCacheReady() === false) {
+            console.log("force: read from db(): " + fname)
+            if (cacheLoadInProgress) {
+                console.log("request has been rejected: " + fname)
+                res.send('');
+            }
+            cacheLoadInProgress = true
+            return new Promise((res3, reject) => {
+                loadSequence.loadGlobalCache()
+                    .then(function () {
+                        cacheLoadInProgress = false
+                        res.send(runGetMethod(req.body));
+                    }).catch(function (error) {
+                    console.log('mistake!', error)
+                })
+            })
         }
-        cacheLoadInProgress = true
-        return new Promise((res3, reject) => {
-            loadSequence.loadGlobalCache()
-                .then(function() {
-                    cacheLoadInProgress = false
-                    res.send(runMethod(req.body));
-                }).catch(function (error) {console.log('mistake!', error)})
-        })
+
+        console.log("read from cache by mobile request: "+ fname)
+        res.send( runGetMethod(req.body))
     }
 
-    console.log("read from cache by mobile request: "+ method)
-    res.send( runMethod(req.body))
+
+    if (method == "INS") {
+        runInsMethod(req.body)
+            .then( function (msg) {
+                res.send(msg);
+            })
+            .catch( function (error) {
+                res.send(error)
+            })
+    }
+
 } );
 
